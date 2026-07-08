@@ -1508,48 +1508,44 @@ function revealSheep(){
   toast('A sheep hopped right in! 🐑');
 }
 
-// 온보딩 스크립트(스펙): ①한칸색 더블탭 → ②자동X 중 하나 남김→ 한번탭 ③양자리에 X=실수(라이프) ④전부 배치=클리어
-// 레퍼런스(고양이 스도쿠) 논리 전개를 그대로 재현: 한 수마다 '왜'를 가르치며 풀어나감.
-// ① 색당 1마리 배치 → ② 행/열 규칙으로 제외(탭) → ③ 인접 규칙으로 제외(쓸기)
-// → ④ 좁혀진 칸에 배치(연역) + 그 행/열 제외 → ⑤ 마지막 색 배치
+// 온보딩(간소화 2026-07-08, USER REQ "튜토리얼 많이 간소화"): 딱 2비트.
+// ① 규칙 한 장면(전체 딤 + 3규칙 한 문장, 탭하면 다음) → ② 확정 정답 셀(P.single) 하이라이트 + 더블탭 가이드.
+// 성공하면 즉시 종료(endTut) — 칭찬/추가 설명 없음, 나머지는 자유 플레이.
 function tutorialScript(P){
-  const N=P.N;
-  const x=Array.from({length:N},()=>new Array(N).fill(false));   // 가상 ✕ 추적
-  const sol=[]; for(let r=0;r<N;r++)for(let c=0;c<N;c++) if(P.solution[r][c]) sol.push([r,c]);
-  const first=P.single.slice();
-  const order=[first, ...sol.filter(s=>!(s[0]===first[0]&&s[1]===first[1]))];
-  const steps=[];
-  order.forEach((cell,idx)=>{
-    const [r,c]=cell, last=idx===order.length-1;
-    const elim=eliminatedBy(P,r,c).filter(([er,ec])=>!P.solution[er][ec] && !x[er][ec]);
-    const rowcol=elim.filter(([er,ec])=>er===r||ec===c);
-    const adj=elim.filter(([er,ec])=>!(er===r||ec===c));
-    let teachTap=null, teachSwipe=null, auto=[];
-    if(idx===0){ teachTap=rowcol; teachSwipe=adj; }       // 첫 양: 행/열 + 인접 둘 다 가르침
-    else if(idx===1){ teachTap=rowcol; auto=adj; }        // 둘째 양: 행/열 한 번 더, 인접은 자동
-    else { auto=elim; }                                   // 이후: 자동 ✕
-    steps.push({type:'place', cells:[cell], autoX:auto,
-      action:'👆 <b>Double-tap</b> to place 🐑',
-      rule: idx===0 ? 'Each <b>color</b> gets exactly one sheep'
-          : last    ? 'Only one <b>color</b> is left — it goes here'
-                    : 'This <b>color</b> now has just one open spot' });
-    elim.forEach(([er,ec])=>x[er][ec]=true);
-    if(teachTap && teachTap.length) steps.push({type:'tap', cells:teachTap,
-      rule: idx===0 ? 'No two sheep in the same <b>row or column</b>' : 'Its <b>row &amp; column</b> are taken now',
-      action:'👆 <b>Tap</b> the glowing cells → ✕'});
-    if(teachSwipe && teachSwipe.length) steps.push({type:'swipe', cells:teachSwipe,
-      rule:'Sheep can’t <b>touch</b> — not even at corners',
-      action:'👆 <b>Swipe</b> across them → ✕'});
-  });
-  return steps;
+  return [
+    {type:'rules', cells:[],
+     rule:'Place 1 sheep 🐑 in every <b>color</b>, <b>row</b> &amp; <b>column</b> — no two can <b>touch</b>.',
+     action:'👆 <b>Tap</b> to start'},
+    {type:'place', cells:[P.single.slice()], autoX:[],
+     rule:'👆 <b>Double-tap</b> to place 🐑', action:''}
+  ];
+}
+// 튜토리얼 완전 종료 → 즉시 자유 플레이(추가 텍스트 없음)
+function endTut(){
+  if(!G.tut || !G.tut.active) return;
+  G.tut.active=false; G.tut.steps=[]; G.tut.i=0;
+  hideTutPop();
+  const ts=$('#tutScreen'); if(ts){ ts.style.pointerEvents='none'; ts.onclick=null; }
+  document.body.classList.remove('tut-mode');
+  setFlavor('');
+  updateBoosters();
+  layout();
 }
 function tutStep(){ return G.tut.steps[G.tut.i]; }
 function tutPrompt(){
   const s=tutStep();
   if(s){
-    // 규칙(왜) + 행동(어떻게)을 한 패널에 통합(보드 밖 상단 고정)
-    showTutPop(s.rule + '<span class="tutAct">'+s.action+'</span>', 'Step '+(G.tut.i+1)+' / '+G.tut.steps.length);
+    // 한 장면 = 한 문장(+선택적 행동 줄). STEP 카운터 없음.
+    showTutPop(s.rule + (s.action ? '<span class="tutAct">'+s.action+'</span>' : ''), '');
     setFlavor('');
+    // 규칙 장면: 화면 아무 데나 탭 → 다음 (보드 밖 탭은 #tutScreen이 받음)
+    const ts=$('#tutScreen');
+    if(ts){
+      if(s.type==='rules'){
+        ts.style.pointerEvents='auto';
+        ts.onclick=()=>{ const cur=tutStep(); if(G.tut.active && cur && cur.type==='rules') advanceTut(); };
+      } else { ts.style.pointerEvents='none'; ts.onclick=null; }
+    }
   } else hideTutPop();
 }
 // 탭/쓸기 단계: 대상 칸이 모두 ✕면 다음 단계로
@@ -1815,6 +1811,9 @@ function render(now){
     drawFences(now);
     drawPlacedHogs(now);   // sheep above fence layer
     const s=tutStep();
+    if(s && s.type==='rules'){   // 규칙 장면: 보드도 통째로 딤(#tutScreen과 같은 톤) → 카드에 집중
+      ctx.save(); ctx.fillStyle='rgba(46,40,34,0.80)'; ctx.fillRect(0,0,CSS,CSS); ctx.restore();
+    }
     if(s && s.cells && s.cells.length){
       const pulse=0.5+0.5*Math.sin(now/260);
       const pad=0, hrad=Math.max(6,CELL*0.13), rad=Math.max(6,CELL*0.13);   // EXACT match: cell rect + the CELL's OWN corner radius (drawJelly uses max(6,CELL*0.13)) → pink border = the grid square exactly (user req 2026-07-02)
@@ -2169,6 +2168,8 @@ function finishPress(cx,cy){
   const painted = G.paint && G.paint.applied.size>0;
   const wasMoved = moved;
   downCell=null; downXY=null; G.paint=null; moved=false;
+  // 튜토리얼 규칙 장면: 아무 데나 탭 → 다음 비트
+  if(G.tut.active){ const ts0=tutStep(); if(ts0 && ts0.type==='rules'){ lastTapCell=null; lastTapAt=0; advanceTut(); return; } }
   if(painted){ lastTapCell=null; lastTapAt=0; checkFences(); return; }
   if(!cell||wasMoved) return;
   if(!G.won && !G.lost && lastTapCell
@@ -2199,34 +2200,17 @@ document.addEventListener('gesturestart',e=>e.preventDefault());   // iOS 핀치
 document.addEventListener('contextmenu', e=>e.preventDefault());   // 웹뷰 롱프레스 복사/컨텍스트 메뉴 차단
 
 
-// 잘못된 제스처 시: '사용한 동작'이 아니라 '현재 단계가 요구하는 동작'을 안내
-function tutGestureHint(){
-  const s=tutStep(); if(!s) return 'Follow the glowing cells!';
-  if(s.type==='place') return 'Double-tap the glowing cell to place 🐑';
-  if(s.type==='swipe') return 'Swipe across the glowing cells → ✕';
-  return 'Tap the glowing cells → ✕';   // 'tap'
-}
 function advanceTut(){
   G.tut.i++; G.tut.fx=null; G.tut.fy=null;   // 손가락이 새 단계로 점프
   if(G.tut.i < G.tut.steps.length) tutPrompt();
-  else hideTutPop();
+  else endTut();
 }
 function doSingle(cell){
   if(G.won||G.lost) return;
   if(G.auto.on) return;   // 자동플레이 중엔 수동 입력 무시
   const {r,c}=cell, st=G.state[r][c];
   if(st==='walking') return;
-  if(G.tut.active){
-    const s=tutStep();
-    const inStep = s && (s.type==='tap'||s.type==='swipe') && s.cells.some(x=>x[0]===r&&x[1]===c);
-    if(inStep){
-      if(st==='empty'){ G.state[r][c]='x'; G.xT[r][c]=performance.now(); sX(); haptic('medium'); tutMarkCheck(); }
-    } else {
-      // place 단계의 대상 글로우 칸을 한 번 탭한 경우엔 더블탭 시도 중 → 잔소리 토스트 생략
-      if(!(s && s.type==='place' && s.cells[0][0]===r && s.cells[0][1]===c)) toast(tutGestureHint());
-    }
-    return;
-  }
+  if(G.tut.active) return;   // 가이드 중: 대상 셀 외 조작 잠금(싱글탭은 항상 무시 — 더블탭만 진행)
   if(st==='hog') return;
   if(st==='x'){ pushUndo(); G.state[r][c]='empty'; G.xT[r][c]=0; G.hint=null; sClear(); haptic('medium'); return; }   // ✕ 탭으로 지울 때 강한 햅틱
   // ✕는 자유 메모 — 양 자리에 찍어도 그냥 정상 흰 ✕ (페널티/빨강 없음)
@@ -2240,9 +2224,9 @@ function doDouble(cell){
   if(G.tut.active){
     const s=tutStep();
     if(s && s.type==='place' && s.cells[0][0]===r && s.cells[0][1]===c){
-      startPlace(r,c, ()=>{ markXCells(s.autoX); advanceTut(); });   // 양이 와서 윙크 후 부수 제외 + 다음 단계
-    } else { toast(tutGestureHint()); }
-    return;
+      startPlace(r,c, ()=>{ endTut(); });   // 성공 → 즉시 튜토리얼 종료(칭찬/추가 텍스트 없음)
+    }
+    return;   // 대상 셀 외 더블탭 무시(잠금)
   }
   if(G.P.solution[r][c]===true){ startPlace(r,c); }
   else { mistake(cell,'No sheep can live here', true); }   // ✕ 자리에 양 → 빨간 ✕로 표시
