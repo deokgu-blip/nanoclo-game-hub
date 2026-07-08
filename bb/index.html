@@ -841,7 +841,7 @@
          text reveal) by effects.js, then detached back on teardown. Advancement is
          BUTTON-ONLY (NEXT runs gotoStage — no auto-advance). The old popup card (panel/
          burst/STAGE-CLEAR title/3-star rating) was removed per the redesign. -->
-    <div id="next-wrap"><button id="next-btn">Continue</button></div>
+    <div id="next-wrap"><button id="next-btn">Next</button></div>
     <!-- REELS LEAN: explicit game-over Restart button (shown only in the GameReels build). -->
     <button id="reels-restart">Retry</button>
   </div>
@@ -6372,7 +6372,7 @@
     setTimeout(() => {
       bridgeSaveState(levelNum + 1);
     }, 1300);
-    nextBtn.textContent = last ? "Replay" : "Continue";
+    nextBtn.textContent = last ? "Replay" : "Next";
     const winClear = window.__bbLastClear || { lines: 0, fxMs: 0 };
     const keepWave = winClear.lines >= 1 && winClear.fxMs > 0;
     if (effects) effects.clearBanner(keepWave);

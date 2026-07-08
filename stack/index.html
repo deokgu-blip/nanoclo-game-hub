@@ -3755,7 +3755,7 @@ function winLevel(){
       __saveReady=true;
       setTimeout(()=>{ try{ emitGameState(_wlv+1); }catch(e){} }, 600);         // GameState{currentStage=다음} — GameEnd 와 시차
       showOverlay("PERFECT!", S.moves<=0 ? "Perfect efficiency — minimum moves!" : ("Moves left "+S.moves),
-        [{label:"Continue",cls:"",fn:()=>genLevel(S.level+1)}],
+        [{label:"Next",cls:"",fn:()=>genLevel(S.level+1)}],
         {banner:"Level "+S.level, pct});   // v1.1: 코인 보상 표시 제거
     },(total+300)*ANIM);
   },300*ANIM);

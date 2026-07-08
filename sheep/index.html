@@ -288,7 +288,7 @@ window.OnMessageFromFlutter=function(m){ try{ window.__GRq.push(m); }catch(e){} 
   .winBigLabel{ display:block; font-size:clamp(15px,4.4vw,19px); font-weight:800; color:#fff; margin-top:4px; }
   .winBigNum{ display:block; font-size:clamp(38px,11vw,60px); font-weight:900; color:#5ee08a;
     line-height:1; text-shadow:0 4px 0 rgba(0,0,0,.22), 0 6px 14px rgba(0,0,0,.35); }
-  .winScreen .winSub{ display:block; font-size:clamp(15px,4.4vw,19px); font-weight:750; color:#e9e3d7; margin-top:7px; }
+  .winScreen .winSub{ display:block; font-size:clamp(15px,4.4vw,19px); font-weight:750; color:#e9e3d7; margin-top:7px; margin-bottom:auto; }   /* 텍스트를 위로(히어로 아래) 붙이고 버튼과 분리 */
   .winNext{
     margin-top:auto; align-self:center; width:min(72%,320px); border:none; cursor:pointer; font-family:inherit;
     background:#91F55B; color:#111315; font-weight:850; font-size:20px; padding:16px 0; border-radius:28px;   /* unified flat CTA */
@@ -601,7 +601,7 @@ body.no-dev .levelTitle:active{ transform:none; }
     </div>
     <div class="winMain" id="winMain"></div>
     <div class="winSub" id="winSub"></div>
-    <button class="winNext" id="winNext">Continue</button>
+    <button class="winNext" id="winNext">Next</button>
     <button class="winReplay" id="winReplay">Play again</button>
   </div>
 </div>
@@ -2563,7 +2563,7 @@ function win(){
     wTitle.innerHTML='';
     // ?to 구간끝: 그 판 클리어 후 정지 — 다음 레벨 버튼 숨김(호스트가 다음 흐름 제어)
     const atEnd = G.toLevel && G.level>=G.toLevel;
-    const wn=$('#winNext'); if(wn){ wn.textContent='Continue'; wn.style.display = atEnd ? 'none' : ''; }
+    const wn=$('#winNext'); if(wn){ wn.textContent='Next'; wn.style.display = atEnd ? 'none' : ''; }
     $('#winModal').classList.add('show');
     launchWinFX(); playFanfare();
     const revealMain=()=>{
