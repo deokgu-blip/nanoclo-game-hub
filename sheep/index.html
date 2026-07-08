@@ -697,7 +697,9 @@ function addNeighbors(reg, frontier, r, c, region, N) {
 }
 
 // 각 고슴도치를 씨앗으로 연결된(contiguous) 색 영역을 무작위로 키운다.
-function growRegions(N, perm, rng) {
+// jag(0~1): 클수록 최근 프론티어를 이어 자라 들쭉날쭉/뱀 모양 영역이 늘어난다
+// (2026-07-08 난이도 튜닝 — 둥근 blob 영역은 단서가 뻔해서 추리 재미가 없다는 USER REQ).
+function growRegions(N, perm, rng, jag) {
   const reg = Array.from({ length: N }, () => new Array(N).fill(-1));
   const frontier = [];
   for (let row = 0; row < N; row++) {
@@ -707,7 +709,7 @@ function growRegions(N, perm, rng) {
   }
   let assigned = N;
   while (assigned < N * N && frontier.length) {
-    const idx = Math.floor(rng() * frontier.length);
+    const idx = (jag && rng() < jag) ? frontier.length - 1 : Math.floor(rng() * frontier.length);
     const f = frontier[idx];
     frontier[idx] = frontier[frontier.length - 1];
     frontier.pop();
@@ -851,33 +853,138 @@ function humanSolvable(reg, N){
   return placed===N;
 }
 
-function genPuzzle(level) {
+// ===== 난이도 메트릭 솔버 (2026-07-08, USER REQ "정답이 뻔히 보여 재미없다 — 추리하는 스테이지로") =====
+// humanSolvable 의 확장판. 같은 무추측(강제수) 원칙을 유지하면서 스텝별 메트릭을 기록한다:
+//  · avail  = 그 시점에 확정 가능한 강제수 개수 (적을수록 어렵다 — "다음 수가 안 보이는" 순간)
+//  · simple = 확정 근거가 단일 제약(1칸 색영역, 또는 한 종류 소거만으로 스코프가 1칸)인지
+//  · complex= 행/열/색/인접 소거를 2종 이상 겹쳐야 1칸이 남는 수 (= 머리쓰는 수)
+//  · L2 공통소거: "이 색영역의 양이 어디에 오든 이 칸은 지워진다" — 사람이 쓰는 무추측 논리.
+//    강제수가 없을 때만 발동하며, 그래도 못 풀면 solved:false (찍기 필요 → 불채택. 절대 제약 유지)
+// cause 비트: 1=행 2=열 4=색영역 8=인접 16=공통소거(L2)
+function solveWithMetrics(reg, N){
+  const cand = Array.from({length:N},()=>new Array(N).fill(true));
+  const causes = Array.from({length:N},()=>new Array(N).fill(0));
+  const rowHas=new Array(N).fill(false), colHas=new Array(N).fill(false), regHas=new Array(N).fill(false);
+  const regCells=Array.from({length:N},()=>[]);
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++) regCells[reg[r][c]].push([r,c]);
+  const oneCell = regCells.filter(a=>a.length===1).length;
+  let placed=0, deepPasses=0, deepPending=false;
+  const steps=[];
+  const put=(r,c)=>{ const g=reg[r][c]; rowHas[r]=true; colHas[c]=true; regHas[g]=true; placed++; cand[r][c]=false;
+    for(let i=0;i<N;i++){ if(cand[r][i]){cand[r][i]=false; causes[r][i]|=1;} if(cand[i][c]){cand[i][c]=false; causes[i][c]|=2;} }
+    for(const [a,b] of regCells[g]) if(cand[a][b]){ cand[a][b]=false; causes[a][b]|=4; }
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){ const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<N&&nc>=0&&nc<N&&cand[nr][nc]){ cand[nr][nc]=false; causes[nr][nc]|=8; } }
+  };
+  const attacks=(a,b,r,c)=> a===r || b===c || reg[a][b]===reg[r][c] || (Math.abs(a-r)<=1&&Math.abs(b-c)<=1);
+  // L2: 미확정 스코프의 후보 전원이 공통으로 공격하는 칸을 소거
+  const deepPass=()=>{
+    let any=false;
+    const scopes=[];
+    for(let r=0;r<N;r++) if(!rowHas[r]){ const cs=[]; for(let c=0;c<N;c++) if(cand[r][c]) cs.push([r,c]); scopes.push(cs); }
+    for(let c=0;c<N;c++) if(!colHas[c]){ const cs=[]; for(let r=0;r<N;r++) if(cand[r][c]) cs.push([r,c]); scopes.push(cs); }
+    for(let g=0;g<N;g++) if(!regHas[g]){ const cs=regCells[g].filter(([a,b])=>cand[a][b]); scopes.push(cs); }
+    for(const cs of scopes){
+      if(cs.length<2) continue;
+      for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+        if(!cand[r][c]) continue;
+        if(cs.some(([a,b])=>a===r&&b===c)) continue;
+        let all=true;
+        for(const [a,b] of cs){ if(!attacks(a,b,r,c)){ all=false; break; } }
+        if(all){ cand[r][c]=false; causes[r][c]|=16; any=true; }
+      }
+    }
+    return any;
+  };
+  // 스코프(elim 칸들)가 "단일 제약"으로 설명되는가: 비-L2 원인 비트의 교집합이 남으면 simple
+  const scopeSimple=(elim)=>{
+    if(!elim.length) return true;                              // 1칸 색영역(자동 정답)
+    let inter=31; for(const k of elim) inter &= causes[k>>4][k&15];
+    return (inter & 15) !== 0;
+  };
+  while(placed<N){
+    // 이 시점의 강제수 전부 수집 (스캔 순서 = 기존 humanSolvable 과 동일: 행→열→색영역)
+    const forced=new Map();
+    const addF=(r,c,elim)=>{ const key=r*N+c; if(!forced.has(key)) forced.set(key,{r,c,scopes:[]}); forced.get(key).scopes.push(elim); };
+    let contradiction=false;
+    for(let r=0;r<N&&!contradiction;r++){ if(rowHas[r]) continue; let n=0,cc=-1; for(let c=0;c<N;c++) if(cand[r][c]){n++;cc=c;}
+      if(n===0){contradiction=true;break;} if(n===1){ const e=[]; for(let c=0;c<N;c++) if(c!==cc) e.push((r<<4)|c); addF(r,cc,e); } }
+    for(let c=0;c<N&&!contradiction;c++){ if(colHas[c]) continue; let n=0,rr=-1; for(let r=0;r<N;r++) if(cand[r][c]){n++;rr=r;}
+      if(n===0){contradiction=true;break;} if(n===1){ const e=[]; for(let r=0;r<N;r++) if(r!==rr) e.push((r<<4)|c); addF(rr,c,e); } }
+    for(let g=0;g<N&&!contradiction;g++){ if(regHas[g]) continue; let n=0,rr=-1,cc=-1; for(const [a,b] of regCells[g]) if(cand[a][b]){n++;rr=a;cc=b;}
+      if(n===0){contradiction=true;break;} if(n===1){ const e=regCells[g].filter(([a,b])=>!(a===rr&&b===cc)).map(([a,b])=>(a<<4)|b); addF(rr,cc,e); } }
+    if(contradiction) return {solved:false, steps, oneCell, deepPasses};
+    if(forced.size===0){
+      if(deepPass()){ deepPasses++; deepPending=true; continue; }
+      return {solved:false, steps, oneCell, deepPasses};       // 강제수도 공통소거도 없음 = 찍어야 함 → 불채택
+    }
+    const mv=forced.values().next().value;
+    const simple = !deepPending && mv.scopes.some(scopeSimple);
+    steps.push({avail:forced.size, simple});
+    deepPending=false;
+    put(mv.r, mv.c);
+  }
+  const nS=steps.length||1;
+  const complexRatio = steps.filter(s=>!s.simple).length/nS;
+  const tightRatio   = steps.filter(s=>s.avail<=2).length/nS;
+  const avgAvail     = steps.reduce((a,s)=>a+s.avail,0)/nS;
+  return { solved:true, steps, oneCell, deepPasses, complexRatio, tightRatio, avgAvail,
+           score: complexRatio + tightRatio*0.5 + 1/avgAvail };
+}
+
+// 레벨 대역별 난이도 목표 (2026-07-08 튜닝):
+//  1~3  : 기존처럼 쉬움(단순 근거 허용, 공통소거 불요구) — 입문 보호
+//  4~8  : 복합 근거 스텝 30%+, "가용 강제수 1~2개" 순간 40%+, 1칸 색영역(자동 정답) 최대 1개
+//  9+   : 복합 근거 스텝 50%+, tight 50%+, 1칸 색영역 0~1개
+// 목표 미달이어도 절대 제약(유일해+무추측)을 지키는 후보 중 최고 난이도를 채택(안전한 점진 하향).
+function bandTargets(level){
+  if (level <= 3) return null;
+  if (level <= 8) return { complexMin:0.30, tightMin:0.40, maxOneCell:1, jag:0.55, maxDeep:1 };   // 초반: 공통소거는 최대 1회(과한 좌절 방지)
+  return              { complexMin:0.50, tightMin:0.50, maxOneCell:1, jag:0.70, maxDeep:9 };
+}
+
+function genPuzzle(level, qaSalt) {   // qaSalt: QA 통계 표본용(게임은 항상 미지정=0 → 결정적)
   const N = sizeForLevel(level);
-  const rng = mulberry32(hashLevel(level));
-  let fbReg = null, fbPerm = null;   // a unique-but-needs-guessing puzzle; used only if no no-guess one is found
+  const rng = mulberry32((hashLevel(level) ^ (qaSalt|0)) >>> 0);
+  const band = bandTargets(level);
+  const mk = (reg, perm, metrics) => {
+    const solution = Array.from({ length: N }, () => new Array(N).fill(false));
+    for (let r = 0; r < N; r++) solution[r][perm[r]] = true;
+    return { N, regions: reg, solution, level, metrics };
+  };
+  let fbReg = null, fbPerm = null;      // unique-but-needs-guessing (최후 안전망, 기존과 동일)
+  let best = null, bestScore = -Infinity; // 무추측 통과 but 목표 미달 → 그중 최고 난이도 보관
   for (let attempt = 0; attempt < 900; attempt++) {
     const perm = genSolution(N, rng);
     if (!perm) continue;
-    let reg = growRegions(N, perm, rng);
+    let reg = growRegions(N, perm, rng, band ? band.jag : 0);
     if (!reg) continue;
     reg = refineRegions(reg, N, perm, rng, 500);
     if (!reg) continue;
-    if (humanSolvable(reg, N)) {          // accept ONLY no-guess (pure-deduction) puzzles
-      const solution = Array.from({ length: N }, () => new Array(N).fill(false));
-      for (let r = 0; r < N; r++) solution[r][perm[r]] = true;
-      return { N, regions: reg, solution, level };
+    const m = solveWithMetrics(reg, N);
+    if (!m.solved) { if (!fbReg) { fbReg = reg; fbPerm = perm; } continue; }
+    if (!band) {
+      if (m.deepPasses === 0) return mk(reg, perm, m);   // 입문: 기본 강제수만으로 풀리는 첫 퍼즐(기존 동작 유지)
+      continue;
     }
-    if (!fbReg) { fbReg = reg; fbPerm = perm; }   // keep a unique one as a last resort
+    if (m.complexRatio >= band.complexMin && m.tightRatio >= band.tightMin &&
+        m.oneCell <= band.maxOneCell && m.deepPasses <= band.maxDeep)
+      return mk(reg, perm, m);                           // 목표 달성 → 채택
+    const s = m.score - (m.oneCell > band.maxOneCell ? 1.5 * (m.oneCell - band.maxOneCell) : 0)
+                      - (m.deepPasses > band.maxDeep ? 1.0 * (m.deepPasses - band.maxDeep) : 0);
+    if (s > bestScore) { bestScore = s; best = { reg, perm, m }; }
   }
+  if (best) return mk(best.reg, best.perm, best.m);      // 목표 미달이어도 무추측 최고 난이도
   // 안전망: no no-guess puzzle in the budget → a unique (harder) one, else raw
   const perm = fbPerm || genSolution(N, rng) || Array.from({ length: N }, (_, i) => i);
-  const reg = fbReg || growRegions(N, perm, rng) || Array.from({ length: N }, () => new Array(N).fill(0));
+  const reg = fbReg || growRegions(N, perm, rng, 0) || Array.from({ length: N }, () => new Array(N).fill(0));
   const solution = Array.from({ length: N }, () => new Array(N).fill(false));
   for (let r = 0; r < N; r++) solution[r][perm[r]] = true;
   return { N, regions: reg, solution, level, nonUnique: !fbReg, needsGuess: true };
 }
 
-// 온보딩 전용 유일해 퍼즐: 반드시 '한 칸짜리 색 영역'을 하나 포함 (결정적)
+// 온보딩 전용 유일해 퍼즐 (결정적). 가이드 타깃(P.single)은 '3칸 이상 색영역의 정답 칸' —
+// 배치 직후 ③색영역 ✕ / ④행·열 ✕ 자동 시연(2026-07-08 확장)이 보이려면 큰 영역이어야 한다.
 function genTutorial() {
   for (const N of [4, 5]) {
     for (let seed = 1; seed < 8000; seed++) {
@@ -890,12 +997,12 @@ function genTutorial() {
       if (!reg) continue;
       const size = {};
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) size[reg[r][c]] = (size[reg[r][c]] || 0) + 1;
-      let single = null;
-      for (let r = 0; r < N && !single; r++) for (let c = 0; c < N; c++) {
-        if (size[reg[r][c]] === 1) { single = [r, c]; break; }
-      }
-      if (!single) continue;
-      if (perm[single[0]] !== single[1]) continue;
+      // 가장 큰 색영역 g의 정답 칸 (g, perm[g]) 을 타깃으로 (영역 g는 항상 자기 행의 정답 칸을 포함)
+      let g = -1, gs = 0;
+      for (let k = 0; k < N; k++) if ((size[k] || 0) > gs) { gs = size[k]; g = k; }
+      if (gs < 3) continue;
+      if (reg[g][perm[g]] !== g) continue;
+      const single = [g, perm[g]];
       const solution = Array.from({ length: N }, () => new Array(N).fill(false));
       for (let r = 0; r < N; r++) solution[r][perm[r]] = true;
       return { N, regions: reg, solution, level: 1, tutorial: true, perm, single };
@@ -1508,18 +1615,46 @@ function revealSheep(){
   toast('A sheep hopped right in! 🐑');
 }
 
-// 온보딩(간소화 2026-07-08, USER REQ "튜토리얼 많이 간소화"): 딱 2비트.
-// ① 규칙 한 장면(전체 딤 + 3규칙 한 문장, 탭하면 다음) → ② 확정 정답 셀(P.single) 하이라이트 + 더블탭 가이드.
-// 성공하면 즉시 종료(endTut) — 칭찬/추가 설명 없음, 나머지는 자유 플레이.
+// 온보딩(간소화 2026-07-08 + 소거 시연 확장, USER REQ): ①규칙 카드 ②가이드 배치는 유지, 배치 성공 직후
+// ③같은 색영역 ✕ 자동 시연 → ④같은 행/열 ✕ 자동 시연(인접 소거는 비트로 안 나눔) → ⑤셀프 마킹 팁 → 종료.
+// ③④ 동안 입력 잠금(관람), ⑤부터 해제. 자동 ✕는 실제 보드 상태에 반영되어 플레이어가 이어서 활용한다.
 function tutorialScript(P){
   return [
     {type:'rules', cells:[],
      rule:'Place 1 sheep 🐑 in every <b>color</b>, <b>row</b> &amp; <b>column</b> — no two can <b>touch</b>.',
      action:'👆 <b>Tap</b> to start'},
     {type:'place', cells:[P.single.slice()], autoX:[],
-     rule:'👆 <b>Double-tap</b> to place 🐑', action:''}
+     rule:'👆 <b>Double-tap</b> to place 🐑', action:''},
+    {type:'watch', cells:[], rule:'No more sheep in this <b>color</b> ✕', action:''},
+    {type:'watch', cells:[], rule:'No more sheep in this <b>row &amp; column</b> ✕', action:''}
   ];
 }
+// ③→④→⑤ 자동 시연 시퀀스 (배치 성공 콜백에서 시작)
+function tutXSequence(r,c){
+  const N=G.N, P=G.P, g=P.regions[r][c], STAG=170, tok=G.tut;   // tok: 레벨 재로드 시 잔여 타이머 무효화
+  goTutStep(2);                                     // ③ 컬러 소거
+  const colorCells=[];
+  for(let a=0;a<N;a++)for(let b=0;b<N;b++) if(P.regions[a][b]===g && G.state[a][b]==='empty') colorCells.push([a,b]);
+  markXCells(colorCells, STAG);
+  setTimeout(()=>{
+    if(G.tut!==tok || !tok.active) return;
+    checkFences();                                  // 색영역 완성 → 울타리 보상 연출
+    goTutStep(3);                                   // ④ 행/열 소거
+    const lineCells=[];
+    for(let i=0;i<N;i++) if(G.state[r][i]==='empty') lineCells.push([r,i]);
+    for(let i=0;i<N;i++) if(G.state[i][c]==='empty') lineCells.push([i,c]);
+    markXCells(lineCells, STAG);
+    setTimeout(()=>{
+      if(G.tut!==tok || !tok.active) return;
+      endTut();                                     // ⑤부터 입력 해제 — 이후 추가 안내 없이 자유 플레이
+      showTutPop('Tap once on a cell to mark ✕ yourself 👆','');
+      const dismiss=()=>{ hideTutPop(); document.removeEventListener('pointerdown',dismiss); };
+      setTimeout(dismiss, 2400);                    // 2.4초 표시 또는 탭으로 닫기
+      setTimeout(()=>document.addEventListener('pointerdown',dismiss), 350);
+    }, 500 + lineCells.length*STAG + 1100);
+  }, 500 + colorCells.length*STAG + 1100);
+}
+function goTutStep(i){ G.tut.i=i; G.tut.fx=null; G.tut.fy=null; tutPrompt(); }
 // 튜토리얼 완전 종료 → 즉시 자유 플레이(추가 텍스트 없음)
 function endTut(){
   if(!G.tut || !G.tut.active) return;
@@ -1553,10 +1688,10 @@ function tutMarkCheck(){
   const s=tutStep(); if(!s||(s.type!=='tap'&&s.type!=='swipe')) return;
   if(s.cells.every(([r,c])=>G.state[r][c]==='x')) setTimeout(advanceTut, 280);
 }
-// 안내 없이 자동으로 ✕ 찍는 칸들(배치 단계의 부수 제외)
-function markXCells(cells){
-  if(!cells||!cells.length) return; const now=performance.now();
-  cells.forEach(([r,c],i)=>{ if(G.state[r][c]==='empty'){ G.state[r][c]='x'; G.xT[r][c]=now+i*45; } });
+// 안내 없이 자동으로 ✕ 찍는 칸들(배치 단계의 부수 제외). stagger(ms)로 순차 드로우 간격 조절.
+function markXCells(cells, stagger){
+  if(!cells||!cells.length) return; const now=performance.now(), st=stagger||45;
+  cells.forEach(([r,c],i)=>{ if(G.state[r][c]==='empty'){ G.state[r][c]='x'; G.xT[r][c]=now+i*st; } });
   sX();
 }
 // 튜토리얼 손가락: place=콕콕(더블), tap=콕(싱글, 미완료 칸으로), swipe=칸들 따라 미끄러짐
@@ -2224,7 +2359,7 @@ function doDouble(cell){
   if(G.tut.active){
     const s=tutStep();
     if(s && s.type==='place' && s.cells[0][0]===r && s.cells[0][1]===c){
-      startPlace(r,c, ()=>{ endTut(); });   // 성공 → 즉시 튜토리얼 종료(칭찬/추가 텍스트 없음)
+      startPlace(r,c, ()=>{ tutXSequence(r,c); });   // 성공 → ③색영역/④행열 ✕ 시연 → ⑤팁 → 종료
     }
     return;   // 대상 셀 외 더블탭 무시(잠금)
   }
