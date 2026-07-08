@@ -175,14 +175,15 @@ window.OnMessageFromFlutter=function(m){ try{ window.__GRq.push(m); }catch(e){} 
   /* --- Tutorial full-screen focus (reference layout 2026-07-02): all UI off, whole screen dimmed, instruction card ABOVE the board --- */
   #tutScreen{ position:fixed; inset:0; background:rgba(46,40,34,0.84); z-index:30; opacity:0; pointer-events:none; transition:opacity .3s ease; }
   body.tut-mode #tutScreen{ opacity:1; }
+  /* 튜토리얼 그리드 = 실제 그리드와 동일 지오메트리 (USER REQ 2026-07-08): HUD는 자리를
+     유지한 채 숨긴다(visibility) — display:none+margin 보정은 보드 위치/크기가 달라져 어색. */
   body.tut-mode .topbar,
   body.tut-mode .statusRow,
   body.tut-mode .rules,
   body.tut-mode .boosters,
   body.tut-mode .flavor,
-  body.tut-mode .applyRow,
+  body.tut-mode .applyRow{ visibility:hidden !important; }
   body.tut-mode #hookBanner{ display:none !important; }
-  body.tut-mode #app>.boardWrap{ margin-top:30vh; }
   body.tut-mode .boardWrap{ position:relative; z-index:35; background:transparent; box-shadow:none; }
   body.tut-mode canvas#board{ background:transparent; box-shadow:none; }
   body.tut-mode #tutPop{ z-index:41; width:min(380px,88%); padding:17px 22px; }
