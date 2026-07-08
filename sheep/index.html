@@ -247,7 +247,7 @@ window.OnMessageFromFlutter=function(m){ try{ window.__GRq.push(m); }catch(e){} 
     55%{opacity:1; transform:translateY(3px) scale(1.18) rotate(2deg);}
     100%{opacity:1; transform:translateY(0) scale(1) rotate(0);}
   }
-  .winStage{ position:relative; flex:1 1 auto; width:100%; min-height:0; display:flex; align-items:center; justify-content:center; }
+  .winStage{ position:relative; flex:0 0 auto; height:44vh; width:100%; min-height:0; display:flex; align-items:center; justify-content:center; }   /* flex:1이 여백을 다 먹어 텍스트가 버튼에 붙던 것 수정 — 텍스트를 히어로 아래로 (USER REQ 2026-07-08) */
   .winRays{
     position:absolute; left:50%; top:50%; width:150%; aspect-ratio:1; transform:translate(-50%,-50%);
     background:repeating-conic-gradient(from 0deg, rgba(255,209,74,.34) 0 7deg, rgba(255,209,74,0) 7deg 14deg);
@@ -288,7 +288,7 @@ window.OnMessageFromFlutter=function(m){ try{ window.__GRq.push(m); }catch(e){} 
   .winBigLabel{ display:block; font-size:clamp(15px,4.4vw,19px); font-weight:800; color:#fff; margin-top:4px; }
   .winBigNum{ display:block; font-size:clamp(38px,11vw,60px); font-weight:900; color:#5ee08a;
     line-height:1; text-shadow:0 4px 0 rgba(0,0,0,.22), 0 6px 14px rgba(0,0,0,.35); }
-  .winScreen .winSub{ display:block; font-size:clamp(15px,4.4vw,19px); font-weight:750; color:#e9e3d7; margin-top:7px; margin-bottom:auto; }   /* 텍스트를 위로(히어로 아래) 붙이고 버튼과 분리 */
+  .winScreen .winSub{ display:block; font-size:clamp(15px,4.4vw,19px); font-weight:750; color:#e9e3d7; margin-top:7px; }
   .winNext{
     margin-top:auto; align-self:center; width:min(72%,320px); border:none; cursor:pointer; font-family:inherit;
     background:#91F55B; color:#111315; font-weight:850; font-size:20px; padding:16px 0; border-radius:28px;   /* unified flat CTA */
