@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Nanoclo Game Hub</title>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ min-height:100%; }
+  body{
+    background:#111315;
+    color:#fff;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    padding:28px 18px calc(40px + env(safe-area-inset-bottom));
+    max-width:520px; margin:0 auto;
+  }
+  header{ text-align:center; margin-bottom:26px; }
+  header h1{ font-size:26px; font-weight:900; letter-spacing:.3px; }
+  header h1 .dot{ color:#91F55B; }
+  header p{ margin-top:6px; font-size:13.5px; color:#A1A4A6; }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card{
+    display:block; text-decoration:none; color:#fff;
+    background:#1F2021; border:1px solid #38383C; border-radius:18px;
+    overflow:hidden; transition:transform .08s ease;
+  }
+  .card:active{ transform:scale(.97); }
+  .thumb{ width:100%; aspect-ratio:9/16; object-fit:cover; object-position:top; display:block;
+    background:#292B2C; }
+  .meta{ padding:10px 12px 12px; }
+  .meta .name{ font-size:15px; font-weight:800; }
+  .meta .sub{ margin-top:2px; font-size:11.5px; color:#A1A4A6; }
+  .play{
+    margin-top:9px; display:flex; align-items:center; justify-content:center;
+    background:#91F55B; color:#111315; font-weight:900; font-size:13.5px;
+    border-radius:999px; padding:8px 0;
+  }
+  footer{ margin-top:30px; text-align:center; font-size:11.5px; color:#515455; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>NANOCLO<span class="dot">.</span>PLAY</h1>
+    <p>Tap a game to play — best on mobile, portrait</p>
+  </header>
+  <div class="grid">
+    <a class="card" href="./bb/">
+      <img class="thumb" src="./thumbs/bb.jpg" alt="" loading="lazy" />
+      <div class="meta"><div class="name">Block Blast</div><div class="sub">Drag &amp; clear lines</div><div class="play">PLAY</div></div>
+    </a>
+    <a class="card" href="./pp/">
+      <img class="thumb" src="./thumbs/pp.jpg" alt="" loading="lazy" />
+      <div class="meta"><div class="name">Picture Puzzle</div><div class="sub">Swap tiles, finish the photo</div><div class="play">PLAY</div></div>
+    </a>
+    <a class="card" href="./goods/">
+      <img class="thumb" src="./thumbs/goods.jpg" alt="" loading="lazy" />
+      <div class="meta"><div class="name">Goods Sort</div><div class="sub">Group matching goods</div><div class="play">PLAY</div></div>
+    </a>
+    <a class="card" href="./sheep/">
+      <img class="thumb" src="./thumbs/sheep.jpg" alt="" loading="lazy" />
+      <div class="meta"><div class="name">Sheep Doku</div><div class="sub">Logic puzzle, no guessing</div><div class="play">PLAY</div></div>
+    </a>
+    <a class="card" href="./stack/">
+      <img class="thumb" src="./thumbs/stack.jpg" alt="" loading="lazy" />
+      <div class="meta"><div class="name">Stack Sort</div><div class="sub">Sort the falling stacks</div><div class="play">PLAY</div></div>
+    </a>
+    <a class="card" href="./octo/?reels">
+      <img class="thumb" src="./thumbs/octo.jpg" alt="" loading="lazy" />
+      <div class="meta"><div class="name">Octo Blast</div><div class="sub">Color-match voxel blast</div><div class="play">PLAY</div></div>
+    </a>
+  </div>
+  <footer>internal build preview · nanoclo</footer>
+</body>
+</html>
