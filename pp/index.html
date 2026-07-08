@@ -62,7 +62,7 @@
   body.gamereels.gravmode #hud-top{ position:absolute; left:0; right:0; top:0; }
   body.gamereels.gravmode #board-wrap{ padding-top:0; }
   /* result screen: lift the Next button well UP from the bottom (user req: "위쪽으로 많이 올려줘") */
-  body.gamereels #overlay{ padding-bottom: 26%; }
+  body.gamereels #overlay{ padding-bottom: calc(52px + env(safe-area-inset-bottom,0px)); }   /* CTA 높이 통일: Octo 기준 52px (2026-07-08) */
 
   /* ── top HUD: gear · Level N · hint bulb (+ badge) ── */
   #hud-top{ position:relative; z-index:5; width:100%; transition:opacity .3s;
