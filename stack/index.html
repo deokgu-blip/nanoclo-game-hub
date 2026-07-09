@@ -265,7 +265,7 @@ body.no-webgl .col .k-mystery .f-front{background:linear-gradient(to bottom,#868
 /* 실패: 레이어는 같은 등장, 본문만 좌우로 '아니야' 흔들림 → 실망감 */
 #ovCard.failIn{animation:layerIn .5s cubic-bezier(.2,1,.3,1);}
 #ovCard.failIn #ovBody{animation:failShake .72s cubic-bezier(.2,1.4,.4,1);}
-@keyframes failShake{0%{transform:scale(.86);opacity:0;}52%{transform:scale(1.04);opacity:1;}68%{transform:scale(1) rotate(-2deg);}80%{transform:rotate(1.6deg);}90%{transform:rotate(-1deg);}100%{transform:rotate(0);}}
+@keyframes failShake{0%{transform:scale(.9);opacity:0;}60%{transform:scale(1.03);opacity:1;}100%{transform:scale(1);opacity:1;}}   /* 흔들림 제거 — 팝 등장만 (2026-07-09) */
 #ovBanner{position:static;transform:none;min-width:0;text-align:center;
   background:none;border:none;border-radius:0;
   padding:0 0 4px;box-shadow:none;}
@@ -274,15 +274,17 @@ body.no-webgl .col .k-mystery .f-front{background:linear-gradient(to bottom,#868
 #ovClose{display:none !important;}
 #ovClose:active{transform:scale(.9);}
 #ovBody{flex:1;width:100%;max-width:380px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 0 52px;}  /* CTA 높이 통일: Octo 기준 52px */
-#ovBig{font-size:clamp(34px,10vw,58px);font-weight:800;letter-spacing:-1.5px;line-height:1.02;text-align:center;margin-top:6px;white-space:nowrap;
-  background:linear-gradient(#fff,#ffe14d 58%,#ffb43a);-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 3px 0 rgba(180,110,0,.55)) drop-shadow(0 0 14px rgba(255,210,90,.6));}
-#ovBig.fail{background:linear-gradient(#fff,#9fc0ff 60%,#5b8de0);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 3px 0 rgba(20,50,110,.5));}
+/* Octo Blast 동일 타이틀 연출 (USER REQ 2026-07-09): 흰 글자 + 네이비 아웃라인 + 살짝 회전 */
+#ovBig{font-size:clamp(40px,13vw,64px);font-weight:900;letter-spacing:.5px;line-height:1.02;text-align:center;margin-top:6px;white-space:nowrap;
+  color:#fff;-webkit-text-fill-color:#fff;transform:rotate(-6deg);
+  text-shadow:-3px -3px 0 #1a2e5a,3px -3px 0 #1a2e5a,-3px 3px 0 #1a2e5a,3px 3px 0 #1a2e5a,0 6px 0 #1a2e5a,0 9px 16px rgba(0,0,0,.55);}
+#ovBig.fail{color:#fff;-webkit-text-fill-color:#fff;}
 /* 결과 타이틀: 글자별로 통통 튀어나오는 등장 애니메이션.
    inline-block 자식엔 부모의 background-clip:text가 안 먹으므로 각 글자가 그라데이션을 직접 상속 */
 /* 글자는 기본 숨김(opacity:0) → JS가 순차로 .slam 클래스를 붙여 '팍!' 박힘(긴 delay+both 의존 제거 → 항상 동작) */
-#ovBig .ovChar{display:inline-block;background:inherit;-webkit-background-clip:text;background-clip:text;color:transparent;opacity:0;will-change:transform,opacity;}
-#ovBig .ovChar.slam{opacity:1;animation:ovCharSlam .4s cubic-bezier(.2,1.8,.3,1);}
+#ovBig .ovChar{display:inline-block;color:inherit;opacity:0;will-change:transform,opacity;}
+#ovBig .ovChar.slam{opacity:1;animation:ovCharPopOcto .42s cubic-bezier(.2,1.7,.4,1);}
+@keyframes ovCharPopOcto{0%{transform:scale(0) translateY(8px);}55%{transform:scale(1.3) translateY(-5px);}100%{transform:scale(1) translateY(0);}}
 @keyframes ovCharPop{
   0%{transform:translateY(26px) scale(.3);opacity:0;}
   60%{transform:translateY(-4px) scale(1.18);opacity:1;}
@@ -3621,7 +3623,7 @@ function showOverlay(title,sub,btns,opts){
   [...String(title)].forEach((ch,i)=>{ if(ch===" ")return; const _last=(i===String(title).length-1);
     setTimeout(()=>{ if(!$("overlay").classList.contains("show")) return; const sp=big.querySelectorAll(".ovChar")[i]; if(sp) sp.classList.add("slam"); ovShake(_last?12:7); vibrate(_last?40:18); }, 900+i*90);
   });
-  $("ovSub").textContent=sub||"";
+  $("ovSub").textContent="";   // 결과창 서브 문구 제거 (Octo 동일 레이아웃, 2026-07-09)
   // 클리어(실패가 아닌) 결과 팝업이 뜨는 순간 콘페티 한 번 더 터뜨려 만족감 강화
   if(opts.tone!=="fail"){
     // 팝업이 뜬 뒤(카드 popIn ~0.5s) 오버레이 위 레이어에서 콘페티/폭죽을 터뜨려 확실히 보이게
@@ -3630,7 +3632,8 @@ function showOverlay(title,sub,btns,opts){
   }
   const pe=$("ovPct");
   if(pe){
-    if(opts.pct!=null){ pe.innerHTML='<span class="pctNum">'+opts.pct.toFixed(1)+'%</span><span class="pctSub">of players beaten!</span>'; pe.classList.add("show"); }
+    // % 통계 표시 제거 (USER REQ 2026-07-09: 결과창을 Octo와 동일하게 — 타이틀+버튼만)
+    if(false && opts.pct!=null){ pe.innerHTML=''; }
     else { pe.classList.remove("show"); pe.innerHTML=""; }
   }
   const rw=$("ovRewards");
@@ -3681,7 +3684,7 @@ function winLevel(){
   setTimeout(()=>{
     if(S.epoch!==ep) return;
     audio.win();
-    screenShake(6, 280);   // 승리 순간 큰 셰이크
+    // screenShake 제거 (USER REQ 2026-07-09: 결과화면 쉐이킹 없이)
     // 전체 줄 완성 회전: 시작~끝까지 길고 강한 진동(드르르르륵). 보드가 클수록 회전도 길어 펄스 수↑
     const spinMs=(S.cols.length-1+ROWS-1)*70+600;
     hapticBurst(Math.max(12, Math.round(spinMs/82)), 82);
